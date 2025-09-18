@@ -1,0 +1,115 @@
+<!doctype html>
+};
+
+
+function parseJwt (token) { const base64Url = token.split('.')[1]; const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/'); const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) { return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join('')); return JSON.parse(jsonPayload); }
+
+
+async function api(action, params={}){
+if (!ID_TOKEN) { alert('Faça login com Google.'); throw new Error('not-auth'); }
+const body = new URLSearchParams({ action, id_token: ID_TOKEN, ...params });
+const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+const data = await res.json();
+if (!data.ok) throw new Error(data.error || 'Erro API');
+return data;
+}
+
+
+// Form – adicionar lançamento
+const form = document.getElementById('formLanc');
+form.addEventListener('submit', async (e) => {
+e.preventDefault();
+const payload = {
+tipo: document.getElementById('tipo').value,
+categoria: document.getElementById('categoria').value,
+valor: parseFloat(document.getElementById('valor').value),
+descricao: document.getElementById('descricao').value,
+conta: document.getElementById('conta').value,
+tags: document.getElementById('tags').value
+};
+await api('add', { payload: JSON.stringify(payload) });
+form.reset();
+refresh();
+});
+
+
+// Orçamento
+const formB = document.getElementById('formBudget');
+formB.addEventListener('submit', async (e) => {
+e.preventDefault();
+const payload = { categoria: document.getElementById('bCategoria').value, valor_mensal: parseFloat(document.getElementById('bValor').value) };
+await api('setBudget', { payload: JSON.stringify(payload) });
+alert('Orçamento salvo.');
+refresh();
+});
+
+
+// Atualizar
+document.getElementById('btAtualizar').addEventListener('click', () => refresh());
+
+
+let pieChart, lineChart;
+async function refresh(){
+const ano = document.getElementById('fAno').value;
+const mes = document.getElementById('fMes').value;
+const list = await api('list', { ano, mes });
+const sum = await api('summary', { ano, mes });
+
+
+// Tabela
+const tbody = document.getElementById('tbody');
+tbody.innerHTML = '';
+list.items.forEach(it => {
+const tr = document.createElement('tr');
+const d = new Date(it.timestamp);
+tr.innerHTML = `<td class="p-2">${d.toLocaleDateString('pt-BR')}</td><td class="p-2">${it.tipo}</td><td class="p-2">${it.categoria}</td><td class="p-2">${it.descricao||''}</td><td class="p-2 text-right">${brl(it.valor)}</td>`;
+tbody.appendChild(tr);
+});
+
+
+// Gráficos
+const cats = Object.keys(sum.porCategoria||{});
+const vals = cats.map(c => sum.porCategoria[c]);
+if (pieChart) pieChart.destroy();
+pieChart = new Chart(document.getElementById('pie'), { type: 'pie', data: { labels: cats, datasets: [{ data: vals }] }, options: { plugins: { legend: { labels: { color: '#e2e8f0' }}}}});
+
+
+// Série mensal (mock simples com mês atual)
+if (lineChart) lineChart.destroy();
+lineChart = new Chart(document.getElementById('line'), { type: 'line', data: { labels: ['Receitas','Despesas','Saldo'], datasets: [{ data: [sum.receitas, sum.despesas, sum.saldo] }] }, options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#94a3b8' }}, y: { ticks: { color: '#94a3b8' }}} }});
+
+
+// Alerts
+const box = document.getElementById('alerts');
+box.innerHTML = '';
+sum.alerts.forEach(a => {
+const div = document.createElement('div');
+div.className = 'mt-2 p-3 rounded bg-red-500/20 border border-red-400/40';
+if (a.tipo === 'categoria') {
+div.textContent = `⚠️ Categoria ${a.categoria}: gasto ${brl(a.gasto)} acima do limite ${brl(a.limite)}`;
+} else {
+div.textContent = `⚠️ Orçamento geral estourado: gastos ${brl(a.gasto)} acima do total permitido ${brl(a.limite)}`;
+}
+box.appendChild(div);
+});
+
+
+// Guardar resumo para IA
+window.__lastSummary = sum;
+}
+
+
+// IA
+document.getElementById('btIA').addEventListener('click', async () => {
+const prompt = document.getElementById('prompt').value;
+const sum = window.__lastSummary || { receitas:0, despesas:0, saldo:0, porCategoria:{}, budgets:{} };
+try{
+const res = await api('ai', { prompt, summary: JSON.stringify(sum) });
+document.getElementById('iaOut').textContent = res.text;
+} catch (e) {
+document.getElementById('iaOut').textContent = 'IA indisponível: ' + e.message;
+}
+});
+</script>
+</body>
+</html>
