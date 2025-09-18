@@ -1,110 +1,487 @@
 <!doctype html>
-};
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>💠 Financeiro Futurista</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b1020">
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#0b1020; --panel:rgba(16,23,42,.6); --border:rgba(59,130,246,.45);
+      --text:#e2e8f0; --muted:#94a3b8; --brand:#38bdf8; --brand-2:#a78bfa; --danger:#ef4444; --success:#22c55e;
+    }
+    [data-theme="light"]{
+      --bg:#f8fafc; --panel:rgba(255,255,255,.75); --text:#0f172a; --muted:#334155; --border:rgba(99,102,241,.45);
+    }
+    html,body{height:100%}
+    body{ background:var(--bg); color:var(--text); overflow-x:hidden }
+    .mesh-bg:before,.mesh-bg:after{
+      content:""; position:fixed; inset:-10% -10% auto -10%; height:120vh; z-index:-1;
+      background: radial-gradient(600px 300px at 8% 12%, rgba(56,189,248,.17), transparent 60%),
+                  radial-gradient(600px 300px at 92% 18%, rgba(167,139,250,.18), transparent 60%),
+                  radial-gradient(800px 400px at 50% 120%, rgba(59,130,246,.12), transparent 60%);
+      filter:saturate(120%); animation: drift 24s linear infinite;
+    }
+    .mesh-bg:after{ transform:scaleX(-1); mix-blend-mode:screen; animation-duration:36s }
+    @keyframes drift{ 0%{transform:translateY(0)} 50%{transform:translateY(-2%)} 100%{transform:translateY(0)} }
+    .card{ backdrop-filter: blur(14px); background:var(--panel); border:1px solid rgba(148,163,184,.18); border-radius:1.25rem }
+    .neon{ position:relative }
+    .neon:before{ content:""; position:absolute; inset:-1px; border-radius:inherit; padding:1px;
+      background:linear-gradient(120deg,var(--brand),var(--brand-2));
+      -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+      -webkit-mask-composite:xor; mask-composite: exclude; pointer-events:none;
+      filter:drop-shadow(0 0 24px rgba(56,189,248,.35));
+    }
+    .btn{ display:inline-flex; align-items:center; justify-content:center; gap:.5rem; padding:.65rem 1rem;
+          border-radius:9999px; border:1px solid rgba(148,163,184,.2); background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.2));
+          transition: transform .12s ease, box-shadow .2s ease, background .2s ease }
+    .btn:hover{ transform: translateY(-1px); box-shadow:0 12px 30px rgba(2,132,199,.25) }
+    .btn-primary{ background:linear-gradient(135deg, var(--brand), var(--brand-2)); color:white; border-color:transparent }
+    .btn-primary:hover{ filter:brightness(1.05) }
+    .input,.select,textarea{ width:100%; padding:.65rem .8rem; border-radius:.9rem; background:rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.25); color:var(--text); outline:none }
+    .input:focus,.select:focus,textarea:focus{ border-color:var(--brand); box-shadow:0 0 0 3px rgba(56,189,248,.25) }
+    .badge{ padding:.25rem .55rem; border-radius:.6rem; background:rgba(56,189,248,.14); border:1px solid rgba(56,189,248,.35); color:#bae6fd; font-size:.75rem }
+    table tr{ border-bottom:1px dashed rgba(148,163,184,.15) } th,td{ padding:.6rem .5rem }
+    #toast{ position:fixed; right:1rem; bottom:1rem; display:none; z-index:50 }
+    .toast-card{ background:rgba(2,6,23,.9); border:1px solid rgba(148,163,184,.25); padding:.8rem 1rem; border-radius:1rem }
+    .reveal{ opacity:0; transform:translateY(12px); transition:all .45s ease } .reveal.show{ opacity:1; transform:none }
+    .pulse{ animation:pulse 1.2s ease-in-out 2 } @keyframes pulse{ 0%{box-shadow:0 0 0 0 rgba(239,68,68,.45)} 100%{box-shadow:0 0 0 24px rgba(239,68,68,0)} }
+  </style>
+</head>
+<body class="min-h-screen mesh-bg">
+<div class="max-w-7xl mx-auto px-6 py-8">
+  <!-- Header -->
+  <header class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+    <div class="flex items-center gap-3">
+      <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-sky-400 to-violet-500 shadow-lg"></div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+        <span class="bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-violet-400">Financeiro Futurista</span>
+      </h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="theme" class="btn" title="Alternar tema">🌓 <span class="hidden sm:inline">Tema</span></button>
+      <div id="userInfo" class="hidden text-sm opacity-80"></div>
+      <div id="g_id_signin"></div>
+    </div>
+  </header>
 
+  <!-- Linha 1: Lançamento + Orçamento + IA -->
+  <section class="grid xl:grid-cols-3 gap-6">
+    <!-- Novo lançamento -->
+    <div class="card neon p-5 xl:col-span-2 reveal">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-semibold">Novo lançamento</h2><span class="badge">rápido</span>
+      </div>
+      <form id="formLanc" class="grid sm:grid-cols-2 gap-3">
+        <select id="tipo" class="select" required>
+          <option value="despesa">Despesa</option>
+          <option value="receita">Receita</option>
+        </select>
+        <input id="categoria" class="input" placeholder="Categoria" required />
+        <input id="valor" type="number" step="0.01" class="input" placeholder="Valor (R$)" required />
+        <input id="descricao" class="input" placeholder="Descrição (opcional)" />
+        <input id="conta" class="input" placeholder="Conta (opcional)" />
+        <input id="tags" class="input" placeholder="Tags (opcional)" />
+        <button class="sm:col-span-2 mt-1 btn btn-primary" id="btAdd">➕ Adicionar</button>
+      </form>
+    </div>
 
-function parseJwt(token){ const base64Url = token.split('.')[1]; const base64 = base64Url.replace(/-/g,'+').replace(/_/g,'/'); const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c){return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)}).join('')); return JSON.parse(jsonPayload); }
+    <!-- Assistente de IA -->
+    <div class="card p-5 reveal">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-semibold mb-3">Assistente de IA</h2>
+      </div>
+      <div class="grid gap-2 mb-2">
+        <select id="model" class="select">
+          <option value="gpt-5-mini" selected>gpt-5-mini (equilíbrio custo/qualidade)</option>
+          <option value="gpt-5-nano">gpt-5-nano (mais barato)</option>
+          <option value="gpt-4o-mini">gpt-4o-mini</option>
+        </select>
+        <small class="opacity-70">
+          Preços API (texto): gpt-5-mini **in** ~US$0,25/M, **out** ~US$2,00/M; gpt-5-nano **in** ~US$0,05/M, **out** ~US$0,40/M; gpt-4o-mini **in** ~US$0,60/M, **out** ~US$2,40/M. Consulte a página oficial para detalhes e atualizações. :contentReference[oaicite:2]{index=2}
+        </small>
+      </div>
+      <textarea id="prompt" rows="4" class="input" placeholder="Pergunte algo (ex.: como reduzir gastos em alimentação?)"></textarea>
+      <button id="btIA" class="btn btn-primary w-full mt-2">✨ Pedir ajuda</button>
+      <div id="iaOut" class="mt-3 text-sm whitespace-pre-wrap opacity-90"></div>
+    </div>
+  </section>
 
+  <!-- Linha 2: Resumo + Orçamento + CSV -->
+  <section class="grid xl:grid-cols-3 gap-6 mt-6">
+    <div class="card p-5 xl:col-span-2 reveal">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-semibold">Resumo</h2>
+        <div class="flex flex-wrap gap-2 items-center">
+          <select id="fAno" class="select w-28"></select>
+          <select id="fMes" class="select w-24"></select>
+          <button id="btAtualizar" class="btn">🔄 Atualizar</button>
+          <button id="btCsv" class="btn">⬇️ Exportar CSV</button>
+        </div>
+      </div>
+      <div class="grid xl:grid-cols-2 gap-6">
+        <canvas id="pie" height="240"></canvas>
+        <canvas id="line" height="240"></canvas>
+      </div>
+      <div id="alerts" class="mt-4 space-y-2"></div>
+    </div>
 
-async function api(action, params={}){
-if(!ID_TOKEN){ alert('Faça login com Google.'); throw new Error('not-auth'); }
-const body = new URLSearchParams({ action, id_token: ID_TOKEN, ...params });
-const res = await fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
-const data = await res.json(); if(!data.ok) throw new Error(data.error||'Erro API'); return data;
+    <!-- Orçamento -->
+    <div class="card p-5 reveal">
+      <h2 class="text-xl font-semibold mb-4">Orçamento</h2>
+      <form id="formBudget" class="grid gap-3">
+        <input id="bCategoria" class="input" placeholder="Categoria" />
+        <input id="bValor" type="number" step="0.01" class="input" placeholder="Limite mensal (R$)" />
+        <button class="btn btn-primary">💾 Salvar orçamento</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Linha 3: Metas + Gerenciar Colunas -->
+  <section class="grid xl:grid-cols-2 gap-6 mt-6">
+    <!-- Metas -->
+    <div class="card p-5 reveal">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xl font-semibold">Metas</h2>
+      </div>
+      <form id="formMeta" class="grid sm:grid-cols-3 gap-3">
+        <input id="mNome" class="input" placeholder="Nome da meta (ex.: Reserva)" required />
+        <input id="mValor" type="number" step="0.01" class="input" placeholder="Valor alvo (R$)" required />
+        <input id="mData" type="date" class="input" />
+        <button class="sm:col-span-3 btn btn-primary">➕ Salvar meta</button>
+      </form>
+      <div id="metasBox" class="mt-4 space-y-3"></div>
+    </div>
+
+    <!-- Gerenciar Colunas -->
+    <div class="card p-5 reveal">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xl font-semibold">Colunas da Tabela</h2>
+        <span class="badge">admin local</span>
+      </div>
+      <div class="grid gap-3">
+        <div class="grid sm:grid-cols-3 gap-2">
+          <input id="colNew" class="input" placeholder="Nova coluna (ex.: centro_custo)" />
+          <button id="btColAdd" class="btn">➕ Adicionar</button>
+          <button id="btColReload" class="btn">🔄 Atualizar</button>
+        </div>
+        <div class="grid sm:grid-cols-3 gap-2">
+          <input id="colOld" class="input" placeholder="Renomear: coluna atual" />
+          <input id="colNewName" class="input" placeholder="Novo nome" />
+          <button id="btColRename" class="btn">✏️ Renomear</button>
+        </div>
+        <div class="grid sm:grid-cols-3 gap-2">
+          <input id="colDel" class="input" placeholder="Remover: nome da coluna" />
+          <button id="btColDel" class="btn">🗑️ Remover</button>
+          <div class="text-xs opacity-75 self-center">Obs.: não é permitido remover/renomear as essenciais.</div>
+        </div>
+        <div id="colsList" class="text-sm opacity-90"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabela -->
+  <section class="card p-5 mt-6 reveal">
+    <h2 class="text-xl font-semibold mb-3">Lançamentos</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="text-slate-300/80" id="thead"></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div id="toast"><div class="toast-card" id="toastMsg"></div></div>
+
+<script>
+// =========================
+// CONFIG – EDITE AQUI
+// =========================
+const CLIENT_ID  = 'PASTE_GOOGLE_CLIENT_ID.apps.googleusercontent.com'; // TODO
+const SCRIPT_URL = 'PASTE_APPS_SCRIPT_WEB_APP_URL'; // TODO (URL de implantação do Apps Script)
+
+let ID_TOKEN = null;
+
+const $ = s => document.querySelector(s);
+function brl(n){ return Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}) }
+function toast(msg){
+  const box=$('#toast'); const t=$('#toastMsg'); t.textContent=msg; box.style.display='block';
+  box.animate([{transform:'translateY(12px)',opacity:0},{transform:'translateY(0)',opacity:1}],{duration:220,fill:'forwards'});
+  setTimeout(()=>{ box.animate([{opacity:1},{opacity:0}],{duration:260,fill:'forwards'}).addEventListener('finish',()=>box.style.display='none'); },2200);
 }
 
+// filtros ano/mes
+(function initFilters(){
+  const now = new Date();
+  const anos = [now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1];
+  const fAno = $('#fAno'); const fMes = $('#fMes');
+  anos.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; if(a===now.getFullYear()) o.selected=true; fAno.appendChild(o); });
+  for(let m=1;m<=12;m++){ const o=document.createElement('option'); o.value=m; o.textContent=m.toString().padStart(2,'0'); if(m===now.getMonth()+1) o.selected=true; fMes.appendChild(o); }
+})();
 
-// Form – adicionar lançamento
-const form = $('#formLanc');
-form.addEventListener('submit', async (e)=>{
-e.preventDefault();
-const payload = {
-tipo: $('#tipo').value,
-categoria: $('#categoria').value,
-valor: parseFloat($('#valor').value),
-descricao: $('#descricao').value,
-conta: $('#conta').value,
-tags: $('#tags').value
-};
-await api('add', { payload: JSON.stringify(payload) });
-form.reset();
-$('#btAdd').classList.add('pointer-events-none');
-$('#btAdd').animate([{transform:'scale(1)'},{transform:'scale(1.04)'}],{duration:120}).addEventListener('finish',()=>$('#btAdd').classList.remove('pointer-events-none'));
-toast('Lançamento adicionado');
-refresh();
+// reveal
+const io = new IntersectionObserver((entries)=>{ entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('show'); }) },{threshold:.1});
+Array.from(document.querySelectorAll('.reveal')).forEach(el=>io.observe(el));
+
+// tema
+$('#theme').addEventListener('click',()=>{
+  const root=document.documentElement; const light=root.getAttribute('data-theme')==='light';
+  root.setAttribute('data-theme', light? 'dark': 'light');
 });
 
+// Google Identity
+window.onload = function(){
+  google.accounts.id.initialize({
+    client_id: CLIENT_ID,
+    callback: (response)=>{
+      ID_TOKEN = response.credential;
+      const payload = parseJwt(ID_TOKEN); const name = payload.name || payload.email;
+      $('#userInfo').classList.remove('hidden');
+      $('#userInfo').textContent = 'Olá, ' + name;
+      $('#g_id_signin').classList.add('hidden');
+      refresh();
+      loadSchema();
+      loadMetas();
+    }
+  });
+  google.accounts.id.renderButton($('#g_id_signin'), { theme:'filled_blue', size:'large', shape:'pill' });
+  google.accounts.id.prompt();
+};
+
+function parseJwt(token){
+  const base64Url = token.split('.')[1];
+  const base64 = base64Url.replace(/-/g,'+').replace(/_/g,'/');
+  const jsonPayload = decodeURIComponent(atob(base64).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+  return JSON.parse(jsonPayload);
+}
+
+async function api(action, params={}){
+  if(!ID_TOKEN){ alert('Faça login com Google.'); throw new Error('not-auth'); }
+  const body = new URLSearchParams({ action, id_token: ID_TOKEN, ...params });
+  const res = await fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+  const data = await res.json(); if(!data.ok) throw new Error(data.error||'Erro API'); return data;
+}
+
+// === Lançamentos ===
+const form = $('#formLanc');
+form.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const payload = {
+    tipo: $('#tipo').value,
+    categoria: $('#categoria').value,
+    valor: parseFloat($('#valor').value),
+    descricao: $('#descricao').value,
+    conta: $('#conta').value,
+    tags: $('#tags').value
+  };
+  await api('add', { payload: JSON.stringify(payload) });
+  form.reset();
+  $('#btAdd').classList.add('pointer-events-none');
+  $('#btAdd').animate([{transform:'scale(1)'},{transform:'scale(1.04)'}],{duration:120}).addEventListener('finish',()=>$('#btAdd').classList.remove('pointer-events-none'));
+  toast('Lançamento adicionado');
+  refresh();
+});
 
 // Orçamento
 const formB = $('#formBudget');
 formB.addEventListener('submit', async (e)=>{
-e.preventDefault();
-const payload = { categoria: $('#bCategoria').value, valor_mensal: parseFloat($('#bValor').value) };
-await api('setBudget', { payload: JSON.stringify(payload) });
-toast('Orçamento salvo');
-refresh();
+  e.preventDefault();
+  const payload = { categoria: $('#bCategoria').value, valor_mensal: parseFloat($('#bValor').value) };
+  await api('setBudget', { payload: JSON.stringify(payload) });
+  toast('Orçamento salvo');
+  refresh();
 });
 
-
-// Atualizar
+// Atualizar Resumo
 $('#btAtualizar').addEventListener('click', ()=> refresh());
 
+// Export CSV
+$('#btCsv').addEventListener('click', async ()=>{
+  const ano = $('#fAno').value; const mes = $('#fMes').value;
+  const { filename, content } = await api('exportCsv', { ano, mes });
+  const blob = new Blob([content], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename || 'lancamentos.csv'; a.click();
+  URL.revokeObjectURL(url);
+});
 
+// Charts + tabela
 let pieChart, lineChart;
 async function refresh(){
-const ano = $('#fAno').value; const mes = $('#fMes').value;
-const list = await api('list', { ano, mes });
-const sum = await api('summary', { ano, mes });
+  const ano = $('#fAno').value; const mes = $('#fMes').value;
+  const list = await api('list', { ano, mes });
+  const sum  = await api('summary', { ano, mes });
 
+  // THEAD dinâmico
+  const thead = $('#thead'); thead.innerHTML='';
+  const trh = document.createElement('tr');
+  const showCols = ['timestamp','tipo','categoria','descricao','valor']; // exibidas
+  showCols.forEach(h=>{ const th=document.createElement('th'); th.className='text-left'; th.textContent=h; trh.appendChild(th); });
+  thead.appendChild(trh);
 
-// Tabela
-const tbody = $('#tbody'); tbody.innerHTML='';
-list.items.forEach(it=>{
-const tr = document.createElement('tr'); const d = new Date(it.timestamp);
-tr.innerHTML = `
-<td>${d.toLocaleDateString('pt-BR')}</td>
-<td><span class="${it.tipo==='despesa'?'text-rose-400':'text-emerald-400'}">${it.tipo}</span></td>
-<td>${it.categoria}</td>
-<td class="opacity-90">${it.descricao||''}</td>
-<td class="text-right font-medium">${brl(it.valor)}</td>`;
-tbody.appendChild(tr);
-});
+  // Tabela
+  const tbody = $('#tbody'); tbody.innerHTML='';
+  list.items.forEach(it=>{
+    const tr = document.createElement('tr');
+    const d = it.timestamp ? new Date(it.timestamp) : null;
+    tr.innerHTML = `
+      <td>${d? d.toLocaleDateString('pt-BR'): '-'}</td>
+      <td><span class="${it.tipo==='despesa'?'text-rose-400':'text-emerald-400'}">${it.tipo||''}</span></td>
+      <td>${it.categoria||''}</td>
+      <td class="opacity-90">${it.descricao||''}</td>
+      <td class="text-right font-medium">${brl(it.valor||0)}</td>`;
+    tbody.appendChild(tr);
+  });
 
+  // Gráficos
+  const cats = Object.keys(sum.porCategoria||{}); const vals = cats.map(c=> sum.porCategoria[c]);
+  if(pieChart) pieChart.destroy();
+  pieChart = new Chart($('#pie'), { type:'pie',
+    data:{ labels:cats, datasets:[{ data: vals }] },
+    options:{ plugins:{ legend:{ labels:{ color:getComputedStyle(document.documentElement).getPropertyValue('--text') } } } }
+  });
 
-// Gráficos
-const cats = Object.keys(sum.porCategoria||{}); const vals = cats.map(c=> sum.porCategoria[c]);
-if(pieChart) pieChart.destroy();
-pieChart = new Chart($('#pie'), { type:'pie', data:{ labels:cats, datasets:[{ data: vals }] }, options:{ plugins:{ legend:{ labels:{ color: getComputedStyle(document.documentElement).getPropertyValue('--text') } } } } });
+  if(lineChart) lineChart.destroy();
+  lineChart = new Chart($('#line'), { type:'line',
+    data:{ labels:['Receitas','Despesas','Saldo'], datasets:[{ data:[sum.receitas,sum.despesas,sum.saldo] }] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ color:getComputedStyle(document.documentElement).getPropertyValue('--muted') } }, y:{ ticks:{ color:getComputedStyle(document.documentElement).getPropertyValue('--muted') } } } }
+  });
 
+  // Alerts
+  const box = $('#alerts'); box.innerHTML='';
+  sum.alerts.forEach(a=>{
+    const div = document.createElement('div');
+    div.className = 'p-3 rounded-lg border flex items-center gap-2 ' + (a.tipo==='categoria' ? 'border-red-400/40 bg-red-500/15' : 'border-amber-400/40 bg-amber-500/15');
+    if(a.tipo==='categoria') div.textContent = `⚠️ Categoria ${a.categoria}: gasto ${brl(a.gasto)} acima do limite ${brl(a.limite)}`;
+    else div.textContent = `⚠️ Orçamento geral estourado: gastos ${brl(a.gasto)} acima do total permitido ${brl(a.limite)}`;
+    div.classList.add('pulse');
+    box.appendChild(div);
+  });
 
-if(lineChart) lineChart.destroy();
-lineChart = new Chart($('#line'), { type:'line', data:{ labels:['Receitas','Despesas','Saldo'], datasets:[{ data:[sum.receitas,sum.despesas,sum.saldo] }] }, options:{ plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ color:getComputedStyle(document.documentElement).getPropertyValue('--muted') } }, y:{ ticks:{ color:getComputedStyle(document.documentElement).getPropertyValue('--muted') } } } } });
-
-
-// Alerts
-const box = $('#alerts'); box.innerHTML='';
-sum.alerts.forEach(a=>{
-const div = document.createElement('div');
-div.className = 'p-3 rounded-lg border flex items-center gap-2 ' + (a.tipo==='categoria' ? 'border-red-400/40 bg-red-500/15' : 'border-amber-400/40 bg-amber-500/15');
-if(a.tipo==='categoria') div.textContent = `⚠️ Categoria ${a.categoria}: gasto ${brl(a.gasto)} acima do limite ${brl(a.limite)}`;
-else div.textContent = `⚠️ Orçamento geral estourado: gastos ${brl(a.gasto)} acima do total permitido ${brl(a.limite)}`;
-div.classList.add('pulse');
-box.appendChild(div);
-});
-
-
-// Guardar resumo para IA
-window.__lastSummary = sum;
+  // Guarda resumo para IA e atualiza metas
+  window.__lastSummary = sum;
+  renderMetas(sum.metas||[]);
 }
 
-
-// IA
+// === IA ===
 $('#btIA').addEventListener('click', async ()=>{
-const prompt = $('#prompt').value; const sum = window.__lastSummary || { receitas:0, despesas:0, saldo:0, porCategoria:{}, budgets:{} };
-try{
-const res = await api('ai', { prompt, summary: JSON.stringify(sum) });
-$('#iaOut').textContent = res.text;
-}catch(e){ $('#iaOut').textContent = 'IA indisponível: ' + e.message; }
+  const prompt = $('#prompt').value;
+  const model = $('#model').value;
+  const sum = window.__lastSummary || { receitas:0, despesas:0, saldo:0, porCategoria:{}, budgets:{}, metas:[] };
+  try{
+    const res = await api('ai', { prompt, summary: JSON.stringify(sum), model });
+    $('#iaOut').textContent = res.text;
+  }catch(e){ $('#iaOut').textContent = 'IA indisponível: ' + e.message; }
 });
+
+// === Metas ===
+const formMeta = $('#formMeta');
+formMeta.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const payload = { nome: $('#mNome').value, valor_meta: parseFloat($('#mValor').value), data_limite: $('#mData').value };
+  await api('goalSet', { payload: JSON.stringify(payload) });
+  toast('Meta salva');
+  $('#mNome').value=''; $('#mValor').value=''; $('#mData').value='';
+  loadMetas();
+});
+
+async function loadMetas(){
+  const { items } = await api('goalList', {});
+  renderMetas(items||[]);
+}
+
+function renderMetas(items){
+  const box = $('#metasBox'); box.innerHTML='';
+  items.forEach(m=>{
+    const pct = m.valor_meta ? Math.min(100, Math.round((m.valor_atual||0)/m.valor_meta*100)) : 0;
+    const div = document.createElement('div');
+    div.className = 'p-3 rounded-lg border border-sky-400/30 bg-black/10';
+    div.innerHTML = `
+      <div class="flex items-center justify-between gap-2">
+        <div class="font-medium">${m.nome}</div>
+        <div class="text-xs opacity-80">${m.data_limite||''}</div>
+      </div>
+      <div class="text-sm mt-1">Progresso: ${brl(m.valor_atual||0)} / ${brl(m.valor_meta||0)} (${pct}%)</div>
+      <div class="w-full h-2 bg-white/10 rounded mt-2">
+        <div class="h-2 rounded" style="width:${pct}%; background:linear-gradient(90deg,var(--brand),var(--brand-2));"></div>
+      </div>
+      <div class="mt-2 flex gap-2">
+        <input type="number" step="0.01" class="input" placeholder="Novo valor atual (R$)" id="atual_${m.nome}">
+        <button class="btn" data-nome="${m.nome}">💾 Atualizar</button>
+      </div>`;
+    box.appendChild(div);
+    div.querySelector('button').addEventListener('click', async (ev)=>{
+      const nome = ev.currentTarget.getAttribute('data-nome');
+      const val = parseFloat(div.querySelector(`#atual_${CSS.escape(m.nome)}`).value||'0');
+      await api('goalUpdate', { payload: JSON.stringify({ nome, valor_atual: val }) });
+      toast('Progresso atualizado');
+      loadMetas();
+    });
+  });
+}
+
+// === Schema (colunas) ===
+async function loadSchema(){
+  const { headers, required } = await api('schema', { op:'get' });
+  renderCols(headers, required||[]);
+}
+
+function renderCols(headers, required){
+  const box = $('#colsList'); box.innerHTML='';
+  const frag = document.createDocumentFragment();
+  const ul = document.createElement('ul');
+  headers.forEach(h=>{
+    const li = document.createElement('li');
+    const badge = required.includes(h) ? '<span class="badge ml-2">essencial</span>' : '';
+    li.innerHTML = `<span class="opacity-90">${h}</span> ${badge}`;
+    ul.appendChild(li);
+  });
+  box.appendChild(ul);
+}
+
+$('#btColAdd').addEventListener('click', async ()=>{
+  const name = $('#colNew').value.trim();
+  if (!name) return;
+  await api('schema', { op:'add', name });
+  $('#colNew').value='';
+  toast('Coluna adicionada');
+  loadSchema();
+});
+
+$('#btColRename').addEventListener('click', async ()=>{
+  const name = $('#colOld').value.trim();
+  const newName = $('#colNewName').value.trim();
+  if (!name || !newName) return;
+  await api('schema', { op:'rename', name, newName });
+  $('#colOld').value=''; $('#colNewName').value='';
+  toast('Coluna renomeada');
+  loadSchema();
+});
+
+$('#btColDel').addEventListener('click', async ()=>{
+  const name = $('#colDel').value.trim();
+  if (!name) return;
+  await api('schema', { op:'remove', name });
+  $('#colDel').value='';
+  toast('Coluna removida');
+  loadSchema();
+});
+
+$('#btColReload').addEventListener('click', loadSchema);
+
+// PWA
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', ()=> navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
 </script>
 </body>
 </html>
